@@ -1,0 +1,87 @@
+# ============================================================
+# 构建并推送 Docker 镜像到 GitHub Container Registry (GHCR)
+# ============================================================
+# 触发：
+#   - push tag v*    -> 生成 1.0.0 / 1.0 / 1 / latest / sha-xxxxxxx
+#   - push main      -> 生成 edge / sha-xxxxxxx
+#   - pull_request   -> 只构建校验，不推送
+#   - 手动触发（Actions 页面 Run workflow）
+#
+# 拉取：
+#   docker pull ghcr.io/ericho1978/c4-ha-bridge:latest
+#   docker pull ghcr.io/ericho1978/c4-ha-bridge:1.0.0
+# ============================================================
+
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 多架构构建需要 QEMU 模拟非原生架构（arm64）
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 关掉自动 latest，改为下面显式控制，行为更可预期
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=edge,branch=main
+            type=sha,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # 目标架构：amd64（NAS/服务器）+ arm64（Armbian 盒子等）
+          # 如需 32 位 ARM（armv7），加 linux/arm/v7 —— 注意 aiohttp 在 armv7
+          # 无预编译 wheel，需现场编译，构建时间会明显变长
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # CI 环境直连 PyPI，无需国内镜像源
+          build-args: |
+            PIP_INDEX=
