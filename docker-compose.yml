@@ -1,0 +1,61 @@
+# ============================================================
+# C4-HA Bridge — Docker Compose 部署
+# ============================================================
+# 使用方法：
+#   1. 把配置放到 ./config/config.yaml（参考 config.example.yaml）
+#   2. 构建并启动：
+#        docker-compose up -d --build
+#      国内网络构建慢时：
+#        PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple docker-compose up -d --build
+#   3. 查看日志：
+#        docker logs -f c4-ha-bridge
+# ============================================================
+
+version: "3.7"
+
+services:
+  c4-ha-bridge:
+    build:
+      context: .
+      args:
+        - PIP_INDEX=${PIP_INDEX:-}
+    image: c4-ha-bridge:latest
+    container_name: c4-ha-bridge
+    restart: unless-stopped
+
+    # 推荐：host 网络模式，与局域网 Control4 / MQTT 互通最方便
+    network_mode: host
+
+    # 若不需要 host 网络，改用 bridge + 端口映射（bridge 模式下 MQTT broker
+    # 地址必须写局域网 IP，不能写 127.0.0.1）：
+    # network_mode: bridge
+    # 或加入已有网络：
+    # networks:
+    #   - homeassistant_default
+
+    environment:
+      - CONFIG_PATH=/app/config/config.yaml
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+
+    volumes:
+      - ./config:/app/config:ro
+
+    # 日志限制，避免磁盘爆
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import aiohttp, gmqtt, yaml; import os; assert os.path.isfile('/app/config/config.yaml')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# 如果 MQTT 在另一个 compose 项目里，用外部网络接入：
+# networks:
+#   homeassistant_default:
+#     external: true

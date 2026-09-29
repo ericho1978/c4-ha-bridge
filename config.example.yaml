@@ -1,0 +1,77 @@
+# ============================================================
+# C4-HA Bridge 配置示例
+# ============================================================
+# 复制本文件为 config/config.yaml 再修改（真实密码不要提交到版本库）
+# ============================================================
+
+# --------------------
+# Control4 控制器
+# --------------------
+control4:
+  # 控制器局域网 IP
+  ip: "****"
+
+  # 可选：直接使用 Director token（跳过云端认证）
+  # 注意 token 约 24 小时过期，长期运行建议留空走账户认证
+  director_token: ""
+
+  # 配置了 director_token 时是否校验其有效性（无效则自动回退账户认证）
+  verify_director_token: true
+
+  # 账户认证（director_token 为空时使用）
+  username: "your_c4_account@example.com"
+  password: "your_password"
+
+# --------------------
+# MQTT
+# --------------------
+mqtt:
+  host: "****"
+  port: 1883
+  username: ""
+  password: ""
+  topic_prefix: "c4-ha"
+  discovery_prefix: "homeassistant"
+
+# --------------------
+# 设备筛选
+# --------------------
+devices:
+  # Control4 proxy 名称 -> HA 组件类型
+  # 依据实测：proxy 才是准确的设备类型标识
+  # 可取值：light / cover / climate / switch
+  proxies:
+    light_v2: light             # 灯光（这批第三方驱动只有开关，无调光）
+    blind: cover                # 窗帘 / 电动窗
+    thermostatV2: climate       # 空调
+    relaysingle_relay_c4: switch # 继电器 / 干接点
+
+  # 整类禁用，例如只想桥接灯光和空调：
+  # disabled_components: ["switch", "cover"]
+  disabled_components: []
+
+  # 只桥接指定 item id（留空=全部）
+  include_ids: []
+
+  # 排除指定 item id
+  exclude_ids: []
+
+# --------------------
+# 状态同步
+# --------------------
+polling:
+  enabled: true
+
+  # 轮询间隔（秒）。设备多（数百个）时不要设太小，建议 30-60
+  interval: 30
+
+  # 使用批量变量接口，一次请求刷新全部设备状态（推荐开启）
+  use_batch: true
+
+  # 批量接口不可用时退化为逐设备读取的并发数
+  concurrency: 8
+
+# --------------------
+# 日志级别：DEBUG / INFO / WARNING / ERROR
+# --------------------
+log_level: "INFO"

@@ -1,0 +1,6 @@
+# 不再依赖 pyControl4（其 1.x 与 async_timeout>=4 不兼容，
+# 2.x 又需要 Python 3.10+），改为在 app/c4_compat.py 中用 aiohttp 直接实现
+# Control4 云端认证与 Director REST 调用。
+aiohttp>=3.8.0
+gmqtt>=0.6.11
+PyYAML>=5.3

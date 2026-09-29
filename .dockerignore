@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+.github
+
+# 配置（含敏感信息，不打进镜像，通过 volume 挂载）
+config/config.yaml
+config/*.yaml
+
+# 测试脚本
+test_*.py
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 文档
+README.md
+*.md
+
+# Docker 本身
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 其他
+*.log
+.DS_Store
