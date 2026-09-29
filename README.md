@@ -75,7 +75,35 @@ Control4 的 `/api/v1/items` 返回中：
 > 无需在 Composer 里开启任何 API：Director 的 `/api/v1/...` 在 OS 2.10.1+ 默认可用，
 > 认证通过 Control4 云账号换取本地 token。
 
-### 方式 A：直接 Python 运行
+### 方式 A：用预构建镜像（推荐）
+
+镜像由 GitHub Actions 自动构建，支持 `linux/amd64` 与 `linux/arm64`：
+
+```bash
+docker pull ghcr.io/ericho1978/c4-ha-bridge:latest      # 最新
+docker pull ghcr.io/ericho1978/c4-ha-bridge:1.0.1       # 指定版本
+```
+
+运行（`--network host`，配置通过 volume 挂载）：
+
+```bash
+mkdir -p /home/ha/c4-ha-bridge/config
+cp config.example.yaml /home/ha/c4-ha-bridge/config/config.yaml
+# 编辑 config.yaml，填入 Control4 与 MQTT 信息
+
+docker run -d --name c4-ha-bridge --restart unless-stopped \
+  --network host \
+  -e TZ=Asia/Shanghai \
+  -v /home/ha/c4-ha-bridge/config:/app/config:ro \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+  ghcr.io/ericho1978/c4-ha-bridge:1.0.1
+```
+
+- 镜像地址：<https://github.com/ericho1978/c4-ha-bridge/pkgs/container/c4-ha-bridge>
+- 标签规则：tag `v1.0.1` → `1.0.1` / `1.0` / `1` / `latest`；推送 `main` → `edge`
+- 版本号写在镜像标签 `org.opencontainers.image.version` 中，可用 `docker inspect` 查看
+
+### 方式 B：直接 Python 运行
 
 ```bash
 cd /path/to/c4-ha-bridge
@@ -109,7 +137,7 @@ systemctl daemon-reload && systemctl enable --now c4-ha-bridge
 journalctl -u c4-ha-bridge -f
 ```
 
-### 方式 B：Docker
+### 方式 C：Docker（本地构建）
 
 ```bash
 docker-compose up -d --build
@@ -244,6 +272,7 @@ c4-ha-bridge/
 │       ├── blind.py           窗帘
 │       ├── thermostat.py      空调
 │       └── relay.py           继电器
+├── .github/workflows/docker.yml   CI：多架构构建并推送 GHCR
 ├── config/config.yaml         实际配置（含密码，勿提交）
 ├── config.example.yaml        配置模板
 ├── test_c4_api.py             连通性测试
@@ -252,5 +281,6 @@ c4-ha-bridge/
 ├── test_c4_probe5.py          **** 继电器控制入口探测
 ├── test_c4_probe6.py          继电器控制通道 + 调光能力实测
 ├── Dockerfile / docker-compose.yml
+├── LICENSE                        MIT
 └── requirements.txt
 ```
